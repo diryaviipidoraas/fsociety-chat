@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>fsociety комнаты</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #0a0a0a;
+      color: #00ff41;
+      font-family: 'Courier New', monospace;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    #app {
+      width: 100%;
+      max-width: 600px;
+      background: #111;
+      border: 1px solid #00ff41;
+      border-radius: 8px;
+      padding: 24px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      font-size: 1.6rem;
+      text-align: center;
+      border-bottom: 1px solid #1a3a1a;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      color: #66ff66;
+    }
+    h1 span { color: #00cc33; }
+    .hidden { display: none; }
+
+    /* Экран входа */
+    #loginView {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 200px;
+    }
+    #loginView label {
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+    }
+    #loginView input {
+      background: #0d0d0d;
+      border: 1px solid #00ff41;
+      color: #00ff41;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 1.2rem;
+      border-radius: 4px;
+      outline: none;
+      width: 80%;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    #loginView button {
+      background: #00ff41;
+      color: #0a0a0a;
+      border: none;
+      padding: 10px 30px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    #loginView button:hover { background: #66ff88; }
+
+    /* Экран комнат */
+    #roomList {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      border: 1px solid #1a3a1a;
+      border-radius: 4px;
+      padding: 8px;
+      background: #0d0d0d;
+      min-height: 150px;
+    }
+    .room-item {
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: #1a1a1a;
+      border-left: 3px solid #00ff41;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      justify-content: space-between;
+    }
+    .room-item:hover { background: #2a2a2a; }
+    .room-item .name { font-weight: bold; }
+    .room-item .count { color: #88aa88; font-size: 0.8rem; }
+    #newRoomForm {
+      display: flex;
+      gap: 10px;
+    }
+    #newRoomForm input {
+      flex: 1;
+      background: #0d0d0d;
+      border: 1px solid #00ff41;
+      color: #00ff41;
+      padding: 8px 12px;
+      font-family: inherit;
+      border-radius: 4px;
+      outline: none;
+    }
+    #newRoomForm button {
+      background: #00ff41;
+      color: #0a0a0a;
+      border: none;
+      padding: 8px 16px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #newRoomForm button:hover { background: #66ff88; }
+    .status {
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #88aa88;
+      text-align: center;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+    .user-info span { color: #88ff88; }
+    .user-info button {
+      background: none;
+      border: 1px solid #446644;
+      color: #88aa88;
+      padding: 2px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .user-info button:hover { background: #1a3a1a; }
+
+    /* Экран чата */
+    #chatView { flex:1; display:flex; flex-direction:column; height:100%; }
+    #chatHeader {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #1a3a1a;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+    #chatHeader .room-title { font-weight: bold; color: #66ff66; }
+    #chatHeader .back-btn {
+      background: none;
+      border: 1px solid #446644;
+      color: #88aa88;
+      padding: 2px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #chatHeader .back-btn:hover { background: #1a3a1a; }
+    #chatOutput {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #1a3a1a;
+      padding: 10px;
+      background: #0d0d0d;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      min-height: 200px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    #chatInputLine {
+      display: flex;
+      border-top: 1px solid #1a3a1a;
+      padding-top: 8px;
+    }
+    #chatInputLine .prompt { margin-right: 10px; }
+    #chatInputLine input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #00ff41;
+      font-family: inherit;
+      outline: none;
+    }
+    .time { color: #446644; font-size:0.7rem; margin-right:8px; }
+    .local { color: #00ff41; }
+    .remote { color: #66ddff; }
+    .system { color: #88aa88; font-style:italic; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- ЭКРАН ВХОДА -->
+  <div id="loginView">
+    <h1><span>fsociety</span> войти</h1>
+    <label for="usernameInput">Введите ваш псевдоним</label>
+    <input type="text" id="usernameInput" placeholder="например, Elliot" autofocus>
+    <button id="loginBtn">войти</button>
+    <div class="status" id="loginStatus"></div>
+  </div>
+
+  <!-- ЭКРАН КОМНАТ -->
+  <div id="roomView" class="hidden">
+    <h1><span>fsociety</span> комнаты</h1>
+    <div class="user-info">
+      <span id="currentUsernameDisplay"></span>
+      <button id="changeNameBtn">сменить имя</button>
+    </div>
+    <div id="roomList"></div>
+    <div id="newRoomForm">
+      <input type="text" id="newRoomInput" placeholder="Название новой комнаты">
+      <button id="createRoomBtn">Создать</button>
+    </div>
+    <div class="status" id="statusMsg">Загрузка комнат...</div>
+  </div>
+
+  <!-- ЭКРАН ЧАТА -->
+  <div id="chatView" class="hidden">
+    <div id="chatHeader">
+      <span class="room-title" id="currentRoomName">комната</span>
+      <span style="color:#88aa88; font-size:0.8rem;" id="chatUsernameDisplay"></span>
+      <button class="back-btn" id="leaveRoomBtn">покинуть</button>
+    </div>
+    <div id="chatOutput"><span class="system">[fsociety] подключено к комнате</span></div>
+    <div id="chatInputLine">
+      <span class="prompt">[elliot@fsociety ~]$</span>
+      <input type="text" id="chatInput" placeholder="введите сообщение..." disabled>
+    </div>
+  </div>
+</div>
+
+<!-- GunDB -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
+  (function() {
+    // --- Элементы ---
+    const loginView = document.getElementById('loginView');
+    const roomView = document.getElementById('roomView');
+    const chatView = document.getElementById('chatView');
+    const usernameInput = document.getElementById('usernameInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginStatus = document.getElementById('loginStatus');
+    const currentUsernameDisplay = document.getElementById('currentUsernameDisplay');
+    const chatUsernameDisplay = document.getElementById('chatUsernameDisplay');
+    const changeNameBtn = document.getElementById('changeNameBtn');
+    const roomListEl = document.getElementById('roomList');
+    const newRoomInput = document.getElementById('newRoomInput');
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const statusMsg = document.getElementById('statusMsg');
+    const chatOutput = document.getElementById('chatOutput');
+    const chatInput = document.getElementById('chatInput');
+    const currentRoomName = document.getElementById('currentRoomName');
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+    // --- Глобальные переменные ---
+    let username = null;
+    let currentRoom = null;
+    let gun = null;
+    let roomsRef = null;
+    let messagesRef = null;
+    let messageListener = null;
+    const shownMsgKeys = new Set();
+    const displayedRooms = new Set();
+
+    // --- Функция для вывода системных сообщений в чат ---
+    function addChatMessage(text, type = 'system') {
+      const line = document.createElement('div');
+      const time = new Date().toLocaleTimeString();
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'time';
+      timeSpan.textContent = `[${time}]`;
+      line.appendChild(timeSpan);
+      const msgSpan = document.createElement('span');
+      msgSpan.className = type;
+      msgSpan.textContent = text;
+      line.appendChild(msgSpan);
+      chatOutput.appendChild(line);
+      chatOutput.scrollTop = chatOutput.scrollHeight;
+    }
+
+    // --- Инициализация Gun и подписка на комнаты ---
+    function initGun() {
+      gun = Gun([
+        'https://gun-manhattan.herokuapp.com/gun',
+        'https://gun-us.herokuapp.com/gun',
+        'https://gun-eu.herokuapp.com/gun'
+      ]);
+      // Корневой узел для списка комнат
+      // Используем специальный ключ, чтобы хранить список названий комнат
+      roomsRef = gun.get('fsociety_rooms_list');
+      loadRoomList();
+    }
+
+    // --- Загрузка списка комнат ---
+    function loadRoomList() {
+      statusMsg.textContent = 'Загрузка комнат...';
+      // Подписываемся на изменения списка комнат
+      // Список хранится как объект { "комната1": true, "комната2": true, ... }
+      roomsRef.map().on(function(value, key) {
+        if (!key || key === '_' || key === '>') return; // служебные ключи Gun
+        if (!displayedRooms.has(key)) {
+          // Добавляем комнату в список
+          addRoomToList(key);
+        }
+        statusMsg.textContent = 'Комнаты загружены';
+      });
+    }
+
+    // --- Добавление комнаты в UI ---
+    function addRoomToList(roomName) {
+      if (displayedRooms.has(roomName)) return;
+      displayedRooms.add(roomName);
+      const item = document.createElement('div');
+      item.className = 'room-item';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = roomName;
+      item.appendChild(nameSpan);
+      const countSpan = document.createElement('span');
+      countSpan.className = 'count';
+      countSpan.textContent = '⚡ активна';
+      item.appendChild(countSpan);
+      item.addEventListener('click', function() {
+        joinRoom(roomName);
+      });
+      roomListEl.appendChild(item);
+    }
+
+    // --- Подписка на сообщения комнаты ---
+    function subscribeToRoom(roomName) {
+      if (messageListener) {
+        try { messageListener.off(); } catch(e) {}
+        messageListener = null;
+        messagesRef = null;
+      }
+      chatOutput.innerHTML = '';
+      shownMsgKeys.clear();
+      messagesRef = gun.get(roomName).get('messages');
+      messageListener = messagesRef.map().on(function(value, key) {
+        if (!value || !value.text || !value.from) return;
+        if (shownMsgKeys.has(key)) return;
+        shownMsgKeys.add(key);
+        const isMine = (value.from === username);
+        const type = isMine ? 'local' : 'remote';
+        const displayName = isMine ? 'вы' : value.from;
+        addChatMessage(`[${displayName}] ${value.text}`, type);
+      });
+      addChatMessage(`[система] Вы вошли в комнату "${roomName}" как ${username}`, 'system');
+    }
+
+    // --- Отправка сообщения ---
+    function sendMessage(text) {
+      text = text.trim();
+      if (!text || !currentRoom) return;
+      const msg = {
+        text: text,
+        from: username,
+        timestamp: Date.now()
+      };
+      const key = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      gun.get(currentRoom).get('messages').get(key).put(msg, function(ack) {
+        if (ack.err) {
+          addChatMessage('[ошибка] Не удалось отправить сообщение', 'system');
+          console.error(ack.err);
+        }
+      });
+      chatInput.value = '';
+    }
+
+    // --- Переключение в комнату ---
+    function joinRoom(roomName) {
+      if (!roomName) return;
+      currentRoom = roomName;
+      currentRoomName.textContent = roomName;
+      roomView.classList.add('hidden');
+      chatView.classList.remove('hidden');
+      chatInput.disabled = false;
+      chatInput.focus();
+      chatUsernameDisplay.textContent = 'пользователь: ' + username;
+      subscribeToRoom(roomName);
+      // Добавляем комнату в общий список, если её там ещё нет
+      roomsRef.get(roomName).put(true, function(ack) {
+        if (ack.err) {
+          console.error('Ошибка сохранения комнаты в список:', ack.err);
+        }
+      });
+    }
+
+    // --- Выход из комнаты ---
+    function leaveRoom() {
+      if (messageListener) {
+        try { messageListener.off(); } catch(e) {}
+        messageListener = null;
+        messagesRef = null;
+      }
+      currentRoom = null;
+      chatView.classList.add('hidden');
+      roomView.classList.remove('hidden');
+      chatInput.disabled = true;
+      chatInput.value = '';
+      chatOutput.innerHTML = '';
+    }
+
+    // --- Установка имени пользователя (вход) ---
+    function setUsername(name) {
+      name = name.trim();
+      if (!name) {
+        loginStatus.textContent = 'Введите имя!';
+        return false;
+      }
+      username = name;
+      localStorage.setItem('fsociety_username', username);
+      currentUsernameDisplay.textContent = 'пользователь: ' + username;
+      chatUsernameDisplay.textContent = 'пользователь: ' + username;
+      loginView.classList.add('hidden');
+      roomView.classList.remove('hidden');
+      if (!gun) {
+        initGun();
+      } else {
+        displayedRooms.clear();
+        roomListEl.innerHTML = '';
+        loadRoomList();
+      }
+      return true;
+    }
+
+    // --- Смена имени ---
+    function changeName() {
+      usernameInput.value = username || '';
+      loginView.classList.remove('hidden');
+      roomView.classList.add('hidden');
+      chatView.classList.add('hidden');
+      if (messageListener) {
+        try { messageListener.off(); } catch(e) {}
+        messageListener = null;
+        messagesRef = null;
+      }
+      currentRoom = null;
+      chatInput.disabled = true;
+      chatInput.value = '';
+      chatOutput.innerHTML = '';
+      loginStatus.textContent = 'Введите новое имя';
+      usernameInput.focus();
+    }
+
+    // --- Обработчики событий ---
+    loginBtn.addEventListener('click', function() {
+      setUsername(usernameInput.value);
+    });
+    usernameInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginBtn.click();
+      }
+    });
+
+    changeNameBtn.addEventListener('click', changeName);
+
+    createRoomBtn.addEventListener('click', function() {
+      const name = newRoomInput.value.trim();
+      if (!name) {
+        statusMsg.textContent = 'Введите название!';
+        return;
+      }
+      // Проверяем, существует ли комната в списке
+      roomsRef.get(name).once(function(value) {
+        if (value) {
+          statusMsg.textContent = 'Комната с таким именем уже существует!';
+          return;
+        }
+        // Создаём комнату (записываем в список)
+        roomsRef.get(name).put(true, function(ack) {
+          if (ack.err) {
+            statusMsg.textContent = 'Ошибка создания: ' + ack.err;
+          } else {
+            statusMsg.textContent = 'Комната создана!';
+            if (!displayedRooms.has(name)) {
+              addRoomToList(name);
+            }
+            newRoomInput.value = '';
+            joinRoom(name);
+          }
+        });
+      });
+    });
+
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage(this.value);
+      }
+    });
+
+    leaveRoomBtn.addEventListener('click', leaveRoom);
+
+    // --- Запуск при загрузке ---
+    const savedUsername = localStorage.getItem('fsociety_username');
+    if (savedUsername) {
+      if (setUsername(savedUsername)) {
+        // всё ок
+      }
+    } else {
+      loginView.classList.remove('hidden');
+      usernameInput.focus();
+    }
+  })();
+</script>
+</body>
+</html>
