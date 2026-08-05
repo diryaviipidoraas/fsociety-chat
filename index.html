@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>fsociety чат</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #0a0a0a;
+      color: #00ff41;
+      font-family: 'Courier New', monospace;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    #app {
+      width: 100%;
+      max-width: 600px;
+      background: #111;
+      border: 1px solid #00ff41;
+      border-radius: 8px;
+      padding: 20px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .hidden { display: none; }
+    input, button {
+      background: #0d0d0d;
+      border: 1px solid #00ff41;
+      color: #00ff41;
+      padding: 8px 12px;
+      font-family: inherit;
+      border-radius: 4px;
+      outline: none;
+    }
+    button {
+      background: #00ff41;
+      color: #0a0a0a;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover { background: #66ff88; }
+    button.danger { background: #663333; color: #ff8888; }
+    #loginView { display:flex; flex-direction:column; align-items:center; gap:12px; padding:20px 0; }
+    #chatOutput { flex:1; overflow-y:auto; border:1px solid #1a3a1a; padding:10px; background:#0d0d0d; border-radius:4px; margin:10px 0; min-height:200px; white-space:pre-wrap; word-wrap:break-word; }
+    #chatInputLine { display:flex; gap:10px; }
+    #chatInputLine input { flex:1; }
+    .time { color:#446644; font-size:0.7rem; margin-right:8px; }
+    .local { color:#00ff41; }
+    .remote { color:#66ddff; }
+    .system { color:#88aa88; font-style:italic; }
+    .user-info { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+    .status { color:#88aa88; font-size:0.8rem; text-align:center; margin:8px 0; }
+    h1 { text-align:center; border-bottom:1px solid #1a3a1a; padding-bottom:12px; margin-bottom:16px; color:#66ff66; font-size:1.4rem; }
+    h1 span { color:#00cc33; }
+    .id-box { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .id-box input { flex:1; min-width:120px; }
+    .id-box button { white-space:nowrap; }
+    .status-connected { color:#66ff66; }
+    .status-disconnected { color:#ff6666; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Экран входа -->
+  <div id="loginView">
+    <h1><span>fsociety</span> вход</h1>
+    <input type="text" id="usernameInput" placeholder="Ваше имя" autofocus>
+    <button id="loginBtn">войти</button>
+    <div class="status" id="loginStatus"></div>
+  </div>
+
+  <!-- Основной экран -->
+  <div id="mainView" class="hidden">
+    <h1><span>fsociety</span> чат</h1>
+    <div class="user-info">
+      <span id="currentUsernameDisplay"></span>
+      <button id="changeNameBtn" class="danger">сменить имя</button>
+    </div>
+
+    <!-- Подключение -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; border:1px solid #1a3a1a; padding:10px; border-radius:4px;">
+      <div style="flex:1; min-width:150px;">
+        <div style="font-size:0.8rem; color:#88aa88;">Твой ID:</div>
+        <div id="myPeerId" style="background:#0d0d0d; padding:4px 8px; border:1px solid #00ff41; border-radius:4px; font-size:0.9rem; word-break:break-all;">загрузка...</div>
+      </div>
+      <div style="flex:2; min-width:180px;">
+        <div style="font-size:0.8rem; color:#88aa88;">ID друга:</div>
+        <div class="id-box">
+          <input type="text" id="remoteIdInput" placeholder="введи ID друга">
+          <button id="connectBtn">подключить</button>
+        </div>
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button id="disconnectBtn" class="danger">отключить</button>
+      </div>
+    </div>
+
+    <div class="status" id="statusMsg">ожидание подключения...</div>
+
+    <!-- Чат -->
+    <div id="chatOutput"><span class="system">[fsociety] ожидание сообщений...</span></div>
+    <div id="chatInputLine">
+      <span class="prompt">[elliot@fsociety ~]$</span>
+      <input type="text" id="chatInput" placeholder="введите сообщение..." disabled>
+    </div>
+  </div>
+</div>
+
+<!-- PeerJS -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+  // --- Элементы ---
+  const loginView = document.getElementById('loginView');
+  const mainView = document.getElementById('mainView');
+  const usernameInput = document.getElementById('usernameInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginStatus = document.getElementById('loginStatus');
+  const currentUsernameDisplay = document.getElementById('currentUsernameDisplay');
+  const changeNameBtn = document.getElementById('changeNameBtn');
+  const myPeerIdEl = document.getElementById('myPeerId');
+  const remoteIdInput = document.getElementById('remoteIdInput');
+  const connectBtn = document.getElementById('connectBtn');
+  const disconnectBtn = document.getElementById('disconnectBtn');
+  const chatOutput = document.getElementById('chatOutput');
+  const chatInput = document.getElementById('chatInput');
+  const statusMsg = document.getElementById('statusMsg');
+
+  let username = null;
+  let peer = null;
+  let conn = null;
+  let myId = null;
+
+  // --- Функции ---
+  function addChatMessage(text, type = 'system') {
+    const line = document.createElement('div');
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'time';
+    timeSpan.textContent = `[${new Date().toLocaleTimeString()}]`;
+    line.appendChild(timeSpan);
+    const msgSpan = document.createElement('span');
+    msgSpan.className = type;
+    msgSpan.textContent = text;
+    line.appendChild(msgSpan);
+    chatOutput.appendChild(line);
+    chatOutput.scrollTop = chatOutput.scrollHeight;
+  }
+
+  function setStatus(text, isConnected = false) {
+    statusMsg.textContent = text;
+    statusMsg.className = 'status' + (isConnected ? ' status-connected' : ' status-disconnected');
+  }
+
+  function enableChat(enabled) {
+    chatInput.disabled = !enabled;
+    chatInput.placeholder = enabled ? 'введите сообщение...' : 'нет соединения';
+    if (enabled) chatInput.focus();
+  }
+
+  // --- PeerJS ---
+  function initPeer() {
+    // Пробуем использовать простое имя
+    const customId = localStorage.getItem('fsociety_peer_id');
+    
+    peer = new Peer(customId || undefined, {
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true
+    });
+
+    peer.on('open', (id) => {
+      myId = id;
+      myPeerIdEl.textContent = id;
+      // Сохраняем ID, если он был создан автоматически
+      if (!localStorage.getItem('fsociety_peer_id')) {
+        localStorage.setItem('fsociety_peer_id', id);
+      }
+      setStatus(`Ваш ID: ${id} | ожидание подключения`);
+      addChatMessage(`[система] Ваш ID: ${id}`, 'system');
+    });
+
+    peer.on('connection', (incomingConn) => {
+      if (conn) {
+        incomingConn.close();
+        addChatMessage('[система] Входящее отклонено (уже есть соединение)', 'system');
+        return;
+      }
+      conn = incomingConn;
+      setupConnection(conn, true);
+    });
+
+    peer.on('error', (err) => {
+      if (err.type === 'peer-unavailable') {
+        setStatus('Ошибка: ID друга не найден');
+        addChatMessage('[ошибка] ID друга не найден', 'system');
+      } else if (err.type === 'unavailable-id') {
+        setStatus('Ошибка: это ID уже занят');
+        addChatMessage('[ошибка] Это ID уже занят, попробуйте другой', 'system');
+        // Пробуем заново с другим ID
+        localStorage.removeItem('fsociety_peer_id');
+        setTimeout(() => {
+          if (peer) peer.destroy();
+          initPeer();
+        }, 1000);
+      } else {
+        setStatus('Ошибка: ' + err.message);
+        addChatMessage(`[ошибка] ${err.message}`, 'system');
+      }
+    });
+
+    peer.on('close', () => {
+      setStatus('Соединение с сервером потеряно');
+      if (conn) {
+        conn.close();
+        conn = null;
+        enableChat(false);
+      }
+    });
+  }
+
+  function setupConnection(connection, isIncoming) {
+    conn = connection;
+    conn.on('open', () => {
+      const peerId = conn.peer;
+      setStatus(`подключено к ${peerId}`, true);
+      enableChat(true);
+      addChatMessage(`[система] ${isIncoming ? 'Входящее' : 'Исходящее'} соединение установлено с ${peerId}`, 'system');
+    });
+
+    conn.on('data', (data) => {
+      addChatMessage(`[${conn.peer}] ${data}`, 'remote');
+    });
+
+    conn.on('close', () => {
+      addChatMessage('[система] Соединение закрыто собеседником', 'system');
+      if (conn === connection) {
+        conn = null;
+        enableChat(false);
+        setStatus('отключено');
+      }
+    });
+
+    conn.on('error', (err) => {
+      addChatMessage(`[ошибка] ${err.message}`, 'system');
+      if (conn === connection) {
+        conn = null;
+        enableChat(false);
+        setStatus('ошибка');
+      }
+    });
+  }
+
+  function connectToPeer(remoteId) {
+    if (!peer) {
+      addChatMessage('[ошибка] Peer не инициализирован', 'system');
+      return;
+    }
+    if (conn) {
+      addChatMessage('[система] Уже есть соединение', 'system');
+      return;
+    }
+    remoteId = remoteId.trim();
+    if (!remoteId) {
+      addChatMessage('[система] Введите ID друга', 'system');
+      return;
+    }
+    if (remoteId === myId) {
+      addChatMessage('[система] Нельзя подключиться к самому себе', 'system');
+      return;
+    }
+    setStatus(`подключение к ${remoteId}...`);
+    addChatMessage(`[система] Подключение к ${remoteId}...`, 'system');
+    const newConn = peer.connect(remoteId, { reliable: true });
+    setupConnection(newConn, false);
+  }
+
+  function disconnect() {
+    if (conn) {
+      conn.close();
+      conn = null;
+      enableChat(false);
+      setStatus('отключено');
+      addChatMessage('[система] Соединение разорвано', 'system');
+    } else {
+      addChatMessage('[система] Нет активного соединения', 'system');
+    }
+  }
+
+  function sendMessage(text) {
+    text = text.trim();
+    if (!text) return;
+    if (!conn) {
+      addChatMessage('[система] Нет соединения', 'system');
+      return;
+    }
+    conn.send(text);
+    addChatMessage(`[вы] ${text}`, 'local');
+    chatInput.value = '';
+  }
+
+  // --- Управление пользователем ---
+  function setUsername(name) {
+    name = name.trim();
+    if (!name) { loginStatus.textContent = 'Введите имя!'; return false; }
+    username = name;
+    localStorage.setItem('fsociety_username', username);
+    currentUsernameDisplay.textContent = 'пользователь: ' + username;
+    loginView.classList.add('hidden');
+    mainView.classList.remove('hidden');
+    initPeer();
+    return true;
+  }
+
+  function changeName() {
+    usernameInput.value = username || '';
+    loginView.classList.remove('hidden');
+    mainView.classList.add('hidden');
+    if (peer) {
+      peer.destroy();
+      peer = null;
+    }
+    if (conn) {
+      conn.close();
+      conn = null;
+    }
+    chatInput.disabled = true;
+    chatInput.value = '';
+    chatOutput.innerHTML = '';
+    loginStatus.textContent = 'Введите новое имя';
+    usernameInput.focus();
+  }
+
+  // --- Обработчики ---
+  loginBtn.addEventListener('click', () => setUsername(usernameInput.value));
+  usernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
+  changeNameBtn.addEventListener('click', changeName);
+  connectBtn.addEventListener('click', () => connectToPeer(remoteIdInput.value));
+  disconnectBtn.addEventListener('click', disconnect);
+  remoteIdInput.addEventListener('keydown', e => { if (e.key === 'Enter') connectBtn.click(); });
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage(chatInput.value);
+    }
+  });
+
+  // --- Старт ---
+  const savedUsername = localStorage.getItem('fsociety_username');
+  if (savedUsername) {
+    if (!setUsername(savedUsername)) {
+      loginView.classList.remove('hidden');
+      usernameInput.focus();
+    }
+  } else {
+    loginView.classList.remove('hidden');
+    usernameInput.focus();
+  }
+</script>
+</body>
+</html>
